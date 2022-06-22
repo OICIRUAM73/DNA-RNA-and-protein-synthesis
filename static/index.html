@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Talenteca Araguato ATS</title>
+  <meta name="description" content="Talenteca Araguato ATS">
+
+  <link rel="shortcut icon" href="/assets/@TK_RELEASE_VERSION@/images/favicon.png">
+
+  <!-- Microsoft theme -->
+  <meta name="msapplication-TileColor" content="#203411">
+  <meta name="theme-color" content="#203411">
+
+  <!-- Web app theme -->
+  <link rel="manifest" href="manifest.json">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <script src="https://unpkg.com/elm-canvas@2.2/elm-canvas.js"></script>
+  <script src="target/js/main.js"></script>
+  <script>
+    var flags = {
+      windowSize: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+    };
+    var app = Elm.Main.init({
+      flags: flags,
+      node: document.body
+    });
+  </script>
+</body>
+
+</html>
