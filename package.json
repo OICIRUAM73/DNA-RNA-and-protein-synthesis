@@ -1,9 +1,15 @@
 {
-  "name": "tk-araguato-ats",
-  "description": "Talenteca Araguato ATS",
+  "homepage": "http://OICIRUAM73.github.io/DNA-RNA-and-protein-synthesis",
+  "name": "DNA Transcription",
+  "description": "DNA Transcription",
   "version": "1.0.0",
   "private": true,
-  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OICIRUAM73/DNA-RNA-and-protein-synthesis.git"
+  },
+  "author": "Mauricio Llumiquinga",
+  "license": "ISC",
   "scripts": {
     "clean": "rm -rf elm-stuff; rm -rf target rm -rf ./static/target",
     "deep-clean": "run-s clean; rm -rf node_modules",
@@ -11,11 +17,14 @@
     "build": "mkdir -p target; mkdir -p static/target/js; run-s compile compress-compress compress-mangle",
     "compile": "elm make src/Main.elm --output=target/main.js --optimize",
     "compress-compress": "uglifyjs target/main.js -o target/main-compress.js -c \"pure_funcs=[F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9],pure_getters,keep_fargs=false,unsafe_comps,unsafe\"",
-    "compress-mangle": "uglifyjs target/main-compress.js --source-map \"filename=main.js.map,url=main.js.map\" -o static/target/js/main.js -m"
+    "compress-mangle": "uglifyjs target/main-compress.js --source-map \"filename=main.js.map,url=main.js.map\" -o static/target/js/main.js -m",
+    "deploy": "gh-pages -d static"
   },
   "devDependencies": {
     "elm-live": "^4.0.2",
+    "elm-review": "^2.7.0",
     "uglify-js": "^3.15.1",
-    "elm-review": "^2.7.0"
-  }
+    "gh-pages": "^4.0.0"
+  },
+  "dependencies": {}
 }
