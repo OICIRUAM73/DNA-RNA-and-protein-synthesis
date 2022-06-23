@@ -71,7 +71,7 @@ type Msg
 
 delayNextStep : Msg -> Cmd Msg
 delayNextStep msg =
-    Process.sleep 0
+    Process.sleep 2000
         |> Task.perform (\_ -> msg)
 
 
