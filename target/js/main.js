@@ -10646,11 +10646,12 @@ var $author$project$Main$delayNextStep = function (msg) {
 		function (_v0) {
 			return msg;
 		},
-		$elm$core$Process$sleep(1000));
+		$elm$core$Process$sleep(0));
 };
 var $author$project$Main$initCmd = function (model) {
 	return $author$project$Main$delayNextStep($author$project$Main$MsgFillFirstSegment);
 };
+var $author$project$Main$Initial = {$: 'Initial'};
 var $author$project$Main$initModel = F3(
 	function (flags, url, navigationKey) {
 		return {
@@ -10664,6 +10665,7 @@ var $author$project$Main$initModel = F3(
 			inputText: 'ATGCATGCTACGTCGCTAGTCTGTGTCGTAGCCATACGTGCACTGAAAGGAGTACTCGACTC',
 			lastFrame: _Utils_Tuple2(0, ''),
 			message: '',
+			processState: $author$project$Main$Initial,
 			result: _List_Nil,
 			rnaChain: '',
 			secondSegment: _List_Nil,
@@ -10887,6 +10889,7 @@ var $elm$browser$Browser$Events$onResize = function (func) {
 var $author$project$Main$subscriptions = function (model) {
 	return $elm$browser$Browser$Events$onResize($author$project$Main$MsgChangeWindowSize);
 };
+var $author$project$Main$Finished = {$: 'Finished'};
 var $author$project$Main$MsgCheckResult = F2(
 	function (a, b) {
 		return {$: 'MsgCheckResult', a: a, b: b};
@@ -10918,6 +10921,7 @@ var $author$project$Main$MsgLookForThirdCodonSegment = F2(
 var $author$project$Main$MsgUnderlineNextCodon = function (a) {
 	return {$: 'MsgUnderlineNextCodon', a: a};
 };
+var $author$project$Main$Running = {$: 'Running'};
 var $elm$core$Maybe$andThen = F2(
 	function (callback, maybeValue) {
 		if (maybeValue.$ === 'Just') {
@@ -11936,7 +11940,7 @@ var $author$project$Main$update = F2(
 					input);
 				var frameWidth = $elm$core$Basics$round(
 					40 + ($elm$core$String$length(newInputText) * 18));
-				var currentMessage = 'We look for the RNA strand';
+				var currentMessage = 'Get the RNA strand from DNA';
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
@@ -11944,6 +11948,7 @@ var $author$project$Main$update = F2(
 							dnaChain: newInputText,
 							frameWidth: frameWidth,
 							message: currentMessage,
+							processState: $author$project$Main$Running,
 							steps: _Utils_ap(
 								model.steps,
 								_List_fromArray(
@@ -11967,7 +11972,7 @@ var $author$project$Main$update = F2(
 					}
 				};
 				var rnaChain = A2($elm$core$String$map, getBase, model.dnaChain);
-				var currentMessage = 'We look for the starting codon: \'AUG\'';
+				var currentMessage = 'Look for the starting codon: \'AUG\'';
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
@@ -11984,7 +11989,7 @@ var $author$project$Main$update = F2(
 			case 'MsgGetStartingFrame':
 				var startIndex = $elm$core$List$head(
 					A2($elm$core$String$indexes, 'AUG', model.rnaChain));
-				var currentMessage = 'We take the first 3 bases from the starting codon';
+				var currentMessage = 'Take the first 3 bases from the starting codon';
 				var newModelAndCmd = function () {
 					var _v2 = A2(
 						$elm$core$Maybe$map,
@@ -12019,23 +12024,37 @@ var $author$project$Main$update = F2(
 			case 'MsgUnderlineNextCodon':
 				var currentFrame = msg.a;
 				var nextCodon = A2($elm$core$String$left, 3, currentFrame.b);
-				var currentMessage = 'The next codon doesn\'t have minimun 3 bases. The process ends.';
-				var newModelAndCmd = ($elm$core$String$length(nextCodon) === 3) ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{underlineNextCodon: true}),
-					$author$project$Main$delayNextStep(
-						A2($author$project$Main$MsgLookForFirstCodonSegment, nextCodon, currentFrame))) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							message: currentMessage,
-							steps: _Utils_ap(
-								model.steps,
-								_List_fromArray(
-									[currentMessage]))
-						}),
-					$elm$core$Platform$Cmd$none);
+				var newModelAndCmd = function () {
+					if ($elm$core$String$length(nextCodon) === 3) {
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									message: 'Look for the first base in the internal region of the Radial Codon Table.',
+									steps: _Utils_ap(
+										model.steps,
+										_List_fromArray(
+											['Look for the codon in the internal region of the Radial Codon Table.'])),
+									underlineNextCodon: true
+								}),
+							$author$project$Main$delayNextStep(
+								A2($author$project$Main$MsgLookForFirstCodonSegment, nextCodon, currentFrame)));
+					} else {
+						var currentMessage = 'The next codon doesn\'t have minimun 3 bases. The process ends.';
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									message: currentMessage,
+									processState: $author$project$Main$Finished,
+									steps: _Utils_ap(
+										model.steps,
+										_List_fromArray(
+											[currentMessage]))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}();
 				return newModelAndCmd;
 			case 'MsgLookForFirstCodonSegment':
 				var nextCodon = msg.a;
@@ -12046,6 +12065,7 @@ var $author$project$Main$update = F2(
 						{
 							currentCodon: $elm$core$Maybe$Just(
 								A2($elm$core$String$left, 1, nextCodon)),
+							message: 'Look for the second base in the middle region of the Radial Codon Table.',
 							underlineFirstNextCodon: true
 						}),
 					$author$project$Main$delayNextStep(
@@ -12059,6 +12079,7 @@ var $author$project$Main$update = F2(
 						{
 							currentCodon: $elm$core$Maybe$Just(
 								A2($elm$core$String$left, 2, nextCodon)),
+							message: 'Look for the third base in the external region of the Radial Codon Table.',
 							underlineSecondNextCodon: true
 						}),
 					$author$project$Main$delayNextStep(
@@ -12117,6 +12138,7 @@ var $author$project$Main$update = F2(
 								model,
 								{
 									message: currentMessage,
+									processState: $author$project$Main$Finished,
 									steps: _Utils_ap(
 										model.steps,
 										_List_fromArray(
@@ -12131,12 +12153,13 @@ var $author$project$Main$update = F2(
 				var lastFrame = msg.b;
 				var newModelAndCmd = function () {
 					if (lastResult === 'STOP') {
-						var currentMessage = 'The result is \'STOP\' so the process ends.';
+						var currentMessage = 'The result is \'STOP\', the process ends.';
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
 								{
 									message: currentMessage,
+									processState: $author$project$Main$Finished,
 									showStepsResume: true,
 									steps: _Utils_ap(
 										model.steps,
@@ -12145,7 +12168,7 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
-						var currentMessage = 'We take the next 3 bases';
+						var currentMessage = 'We take the next codon ( 3 bases )';
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -12170,6 +12193,8 @@ var $author$project$Main$update = F2(
 				var nextFrame = _Utils_Tuple2(
 					index + 3,
 					A2($elm$core$String$dropLeft, 3, frame));
+				var nextCodon = A2($elm$core$String$left, 3, nextFrame.b);
+				var currentMessage = 'The next codon is: ' + nextCodon;
 				var nextWorkingFrame = _Utils_ap(
 					model.workingFrame,
 					_List_fromArray(
@@ -12179,10 +12204,45 @@ var $author$project$Main$update = F2(
 				var newModelAndCmd = _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{frameHeight: frameHeight, underlineFirstNextCodon: false, underlineNextCodon: false, underlineSecondNextCodon: false, underlineThirdNextCodon: false, workingFrame: nextWorkingFrame}),
+						{
+							frameHeight: frameHeight,
+							message: currentMessage,
+							steps: _Utils_ap(
+								model.steps,
+								_List_fromArray(
+									[currentMessage])),
+							underlineFirstNextCodon: false,
+							underlineNextCodon: false,
+							underlineSecondNextCodon: false,
+							underlineThirdNextCodon: false,
+							workingFrame: nextWorkingFrame
+						}),
 					$author$project$Main$delayNextStep(
 						$author$project$Main$MsgUnderlineNextCodon(nextFrame)));
 				return newModelAndCmd;
+			case 'MsgReset':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							currentCodon: $elm$core$Maybe$Nothing,
+							dnaChain: '',
+							frameHeight: 130,
+							frameWidth: 100,
+							lastFrame: _Utils_Tuple2(0, ''),
+							message: '',
+							processState: $author$project$Main$Initial,
+							result: _List_Nil,
+							rnaChain: '',
+							showStepsResume: false,
+							steps: _List_Nil,
+							underlineFirstNextCodon: false,
+							underlineNextCodon: false,
+							underlineSecondNextCodon: false,
+							underlineThirdNextCodon: false,
+							workingFrame: _List_Nil
+						}),
+					$elm$core$Platform$Cmd$none);
 			case 'Frame':
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -13381,18 +13441,18 @@ var $feathericons$elm_feather$FeatherIcons$chevronRight = A2(
 				]),
 			_List_Nil)
 		]));
-var $author$project$Model$colorPalette = {
+var $author$project$CustomColor$colorPalette = {
 	background: A3($avh4$elm_color$Color$rgb255, 255, 255, 255),
 	error: A3($avh4$elm_color$Color$rgb255, 176, 0, 32),
 	on: {
 		background: A3($avh4$elm_color$Color$rgb255, 0, 0, 0),
-		error: A3($avh4$elm_color$Color$rgb255, 255, 255, 255),
+		error: A3($avh4$elm_color$Color$rgb255, 176, 0, 32),
 		primary: A3($avh4$elm_color$Color$rgb255, 255, 255, 255),
 		secondary: A3($avh4$elm_color$Color$rgb255, 0, 0, 0),
 		surface: A3($avh4$elm_color$Color$rgb255, 0, 0, 0)
 	},
-	primary: A3($avh4$elm_color$Color$rgb255, 26, 35, 126),
-	secondary: A3($avh4$elm_color$Color$rgb255, 61, 90, 254),
+	primary: A3($avh4$elm_color$Color$rgb255, 41, 98, 255),
+	secondary: A3($avh4$elm_color$Color$rgb255, 230, 74, 25),
 	surface: A3($avh4$elm_color$Color$rgb255, 255, 255, 255)
 };
 var $mdgriffith$elm_ui$Internal$Model$Unkeyed = function (a) {
@@ -19157,8 +19217,45 @@ var $feathericons$elm_feather$FeatherIcons$toHtml = F2(
 var $author$project$Main$InputText = function (a) {
 	return {$: 'InputText', a: a};
 };
+var $author$project$Main$MsgReset = {$: 'MsgReset'};
 var $author$project$Main$ShowAllSteps = {$: 'ShowAllSteps'};
 var $author$project$Main$Submit = {$: 'Submit'};
+var $mdgriffith$elm_ui$Element$Font$family = function (families) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$fontFamily,
+		A2(
+			$mdgriffith$elm_ui$Internal$Model$FontFamily,
+			A3($elm$core$List$foldl, $mdgriffith$elm_ui$Internal$Model$renderFontClassName, 'ff-', families),
+			families));
+};
+var $mdgriffith$elm_ui$Element$Font$typeface = $mdgriffith$elm_ui$Internal$Model$Typeface;
+var $author$project$Font$fontAttr = F2(
+	function (typeface, fallback) {
+		return $mdgriffith$elm_ui$Element$Font$family(
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$Font$typeface(typeface),
+					fallback
+				]));
+	});
+var $mdgriffith$elm_ui$Element$Font$sansSerif = $mdgriffith$elm_ui$Internal$Model$SansSerif;
+var $author$project$Font$regular = F3(
+	function (color, size, letterSpacing) {
+		return _List_fromArray(
+			[
+				A2($author$project$Font$fontAttr, 'Alegreya Sans', $mdgriffith$elm_ui$Element$Font$sansSerif),
+				$mdgriffith$elm_ui$Element$Font$color(
+				$mdgriffith$elm_ui$Element$fromRgb(
+					$avh4$elm_color$Color$toRgba(color))),
+				$mdgriffith$elm_ui$Element$Font$letterSpacing(letterSpacing),
+				$mdgriffith$elm_ui$Element$Font$size(size)
+			]);
+	});
+var $author$project$Font$body = function (color) {
+	return A3($author$project$Font$regular, color, 16, 0.25);
+};
+var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.bold);
 var $joakin$elm_canvas$Canvas$Internal$Canvas$Fill = function (a) {
 	return {$: 'Fill', a: a};
 };
@@ -19333,6 +19430,9 @@ var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
 			clr));
 };
 var $Orasund$elm_ui_widgets$Widget$Material$containedButton = $Orasund$elm_ui_widgets$Internal$Material$Button$containedButton;
+var $author$project$Font$headline = function (color) {
+	return A3($author$project$Font$regular, color, 28, 0.0);
+};
 var $mdgriffith$elm_ui$Element$padding = function (x) {
 	var f = x;
 	return A2(
@@ -20801,6 +20901,7 @@ var $Orasund$elm_ui_widgets$Widget$searchInput = function () {
 	return fun;
 }();
 var $mdgriffith$elm_ui$Element$spaceEvenly = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$spacing, $mdgriffith$elm_ui$Internal$Style$classes.spaceEvenly);
+var $author$project$CustomColor$text = A3($avh4$elm_color$Color$rgb255, 0, 0, 0);
 var $Orasund$elm_ui_widgets$Widget$Material$Color$buttonSelectedOpacity = 0.16;
 var $Orasund$elm_ui_widgets$Internal$Material$Palette$lightGray = function (palette) {
 	return A3($Orasund$elm_ui_widgets$Widget$Material$Color$withShade, palette.on.surface, 0.14, palette.surface);
@@ -21876,14 +21977,16 @@ var $author$project$Main$viewElement = function (model) {
 								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
 								$mdgriffith$elm_ui$Element$padding(20),
-								$mdgriffith$elm_ui$Element$spacing(20)
+								$mdgriffith$elm_ui$Element$spacing(8)
 							]),
 						_List_fromArray(
 							[
 								A2(
 								$mdgriffith$elm_ui$Element$el,
-								_List_fromArray(
-									[$mdgriffith$elm_ui$Element$centerX]),
+								_Utils_ap(
+									$author$project$Font$headline($author$project$CustomColor$colorPalette.primary),
+									_List_fromArray(
+										[$mdgriffith$elm_ui$Element$centerX])),
 								$mdgriffith$elm_ui$Element$text('DNA TRANSLATION')),
 								A2(
 								$mdgriffith$elm_ui$Element$row,
@@ -21895,7 +21998,7 @@ var $author$project$Main$viewElement = function (model) {
 								_List_fromArray(
 									[
 										function () {
-										var textStyle = $Orasund$elm_ui_widgets$Widget$Material$textInput($author$project$Model$colorPalette);
+										var textStyle = $Orasund$elm_ui_widgets$Widget$Material$textInput($author$project$CustomColor$colorPalette);
 										var newStyle = _Utils_update(
 											textStyle,
 											{
@@ -21921,13 +22024,24 @@ var $author$project$Main$viewElement = function (model) {
 												text: model.inputText
 											});
 									}(),
-										A2(
-										$Orasund$elm_ui_widgets$Widget$textButton,
-										$Orasund$elm_ui_widgets$Widget$Material$containedButton($author$project$Model$colorPalette),
-										{
-											onPress: $elm$core$Maybe$Just($author$project$Main$Submit),
-											text: 'Submit'
-										})
+										function () {
+										var onPressMsg = function () {
+											var _v0 = model.processState;
+											switch (_v0.$) {
+												case 'Initial':
+													return $elm$core$Maybe$Just($author$project$Main$Submit);
+												case 'Running':
+													return $elm$core$Maybe$Nothing;
+												default:
+													return $elm$core$Maybe$Just($author$project$Main$MsgReset);
+											}
+										}();
+										var label = _Utils_eq(model.processState, $author$project$Main$Finished) ? 'Reset' : 'Submit';
+										return A2(
+											$Orasund$elm_ui_widgets$Widget$textButton,
+											$Orasund$elm_ui_widgets$Widget$Material$containedButton($author$project$CustomColor$colorPalette),
+											{onPress: onPressMsg, text: label});
+									}()
 									])),
 								(model.dnaChain !== '') ? A2(
 								$mdgriffith$elm_ui$Element$paragraph,
@@ -21937,8 +22051,14 @@ var $author$project$Main$viewElement = function (model) {
 									]),
 								_List_fromArray(
 									[
-										$mdgriffith$elm_ui$Element$text('DNA Strand: '),
-										$mdgriffith$elm_ui$Element$text(model.dnaChain)
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$colorPalette.primary),
+										$mdgriffith$elm_ui$Element$text('DNA Strand: ')),
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$text),
+										$mdgriffith$elm_ui$Element$text(model.dnaChain))
 									])) : $mdgriffith$elm_ui$Element$none,
 								(model.rnaChain !== '') ? A2(
 								$mdgriffith$elm_ui$Element$paragraph,
@@ -21948,19 +22068,72 @@ var $author$project$Main$viewElement = function (model) {
 									]),
 								_List_fromArray(
 									[
-										$mdgriffith$elm_ui$Element$text('Protein Result: '),
-										$mdgriffith$elm_ui$Element$text(
-										$elm_community$string_extra$String$Extra$toTitleCase(
-											A2($elm$core$String$join, ', ', model.result)))
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$colorPalette.primary),
+										$mdgriffith$elm_ui$Element$text('RNA Strand: ')),
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$text),
+										$mdgriffith$elm_ui$Element$text(model.rnaChain))
 									])) : $mdgriffith$elm_ui$Element$none,
-								($elm$core$String$length(model.message) > 0) ? $mdgriffith$elm_ui$Element$text(model.message) : $mdgriffith$elm_ui$Element$none,
+								(model.rnaChain !== '') ? A2(
+								$mdgriffith$elm_ui$Element$column,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+										$mdgriffith$elm_ui$Element$spacing(5)
+									]),
+								_List_fromArray(
+									[
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$colorPalette.primary),
+										$mdgriffith$elm_ui$Element$text('Amino acid sequence: ')),
+										A2(
+										$mdgriffith$elm_ui$Element$paragraph,
+										_Utils_ap(
+											$author$project$Font$body($author$project$CustomColor$text),
+											A2(
+												$elm$core$List$cons,
+												$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+												_Utils_eq(model.processState, $author$project$Main$Finished) ? _List_fromArray(
+													[$mdgriffith$elm_ui$Element$Font$bold]) : _List_Nil)),
+										_List_fromArray(
+											[
+												$mdgriffith$elm_ui$Element$text(
+												$elm_community$string_extra$String$Extra$toTitleCase(
+													A2($elm$core$String$join, ', ', model.result)))
+											]))
+									])) : $mdgriffith$elm_ui$Element$none,
+								($elm$core$String$length(model.message) > 0) ? A2(
+								$mdgriffith$elm_ui$Element$paragraph,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+										$mdgriffith$elm_ui$Element$alignBottom
+									]),
+								_List_fromArray(
+									[
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										$author$project$Font$body($author$project$CustomColor$colorPalette.primary),
+										$mdgriffith$elm_ui$Element$text('Current Step: ')),
+										A2(
+										$mdgriffith$elm_ui$Element$el,
+										_Utils_ap(
+											$author$project$Font$body($author$project$CustomColor$text),
+											_List_fromArray(
+												[$mdgriffith$elm_ui$Element$Font$bold])),
+										$mdgriffith$elm_ui$Element$text(model.message))
+									])) : $mdgriffith$elm_ui$Element$none,
 								model.showStepsResume ? A2(
 								$mdgriffith$elm_ui$Element$el,
 								_List_fromArray(
 									[$mdgriffith$elm_ui$Element$centerX]),
 								A2(
 									$Orasund$elm_ui_widgets$Widget$textButton,
-									$Orasund$elm_ui_widgets$Widget$Material$containedButton($author$project$Model$colorPalette),
+									$Orasund$elm_ui_widgets$Widget$Material$containedButton($author$project$CustomColor$colorPalette),
 									{
 										onPress: $elm$core$Maybe$Just($author$project$Main$ShowAllSteps),
 										text: 'Show all steps'
@@ -22058,7 +22231,7 @@ var $author$project$Main$viewStylish = function (model) {
 				A3($mdgriffith$elm_ui$Element$rgb255, 244, 244, 244)),
 			function () {
 				if (model.showModal) {
-					var style = $Orasund$elm_ui_widgets$Widget$Material$alertDialog($author$project$Model$colorPalette);
+					var style = $Orasund$elm_ui_widgets$Widget$Material$alertDialog($author$project$CustomColor$colorPalette);
 					return $Orasund$elm_ui_widgets$Widget$singleModal(
 						_List_fromArray(
 							[
@@ -22166,7 +22339,7 @@ var $author$project$Main$view = function (model) {
 			[
 				$author$project$Main$viewStylish(model)
 			]),
-		title: 'Tus postulantes · Talenteca'
+		title: 'DNA Translation'
 	};
 };
 var $author$project$Main$main = $elm$browser$Browser$application(
@@ -22192,4 +22365,4 @@ _Platform_export({'Main':{'init':$author$project$Main$main(
 						},
 						A2($elm$json$Json$Decode$field, 'height', $elm$json$Json$Decode$int));
 				},
-				A2($elm$json$Json$Decode$field, 'width', $elm$json$Json$Decode$int)))))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"Pass":[],"MsgChangeWindowSize":["Basics.Int","Basics.Int"],"InputText":["String.String"],"Submit":[],"MsgGetRNA":[],"MsgGetStartingFrame":[],"MsgGetNextFrame":["( Basics.Int, String.String )"],"MsgUnderlineNextCodon":["( Basics.Int, String.String )"],"MsgLookForFirstCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgLookForSecondCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgLookForThirdCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgGetCurrentCodonResult":["String.String","( Basics.Int, String.String )"],"MsgCheckResult":["String.String","( Basics.Int, String.String )"],"MsgFillFirstSegment":[],"MsgFillSecondSegment":[],"MsgFillThirdSegment":[],"MsgFillFourthSegment":[],"Frame":["Basics.Float"],"ShowAllSteps":[],"HideAllSteps":[]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+				A2($elm$json$Json$Decode$field, 'width', $elm$json$Json$Decode$int)))))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"Pass":[],"MsgChangeWindowSize":["Basics.Int","Basics.Int"],"InputText":["String.String"],"Submit":[],"MsgGetRNA":[],"MsgGetStartingFrame":[],"MsgGetNextFrame":["( Basics.Int, String.String )"],"MsgUnderlineNextCodon":["( Basics.Int, String.String )"],"MsgLookForFirstCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgLookForSecondCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgLookForThirdCodonSegment":["String.String","( Basics.Int, String.String )"],"MsgGetCurrentCodonResult":["String.String","( Basics.Int, String.String )"],"MsgCheckResult":["String.String","( Basics.Int, String.String )"],"MsgReset":[],"MsgFillFirstSegment":[],"MsgFillSecondSegment":[],"MsgFillThirdSegment":[],"MsgFillFourthSegment":[],"Frame":["Basics.Float"],"ShowAllSteps":[],"HideAllSteps":[]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
