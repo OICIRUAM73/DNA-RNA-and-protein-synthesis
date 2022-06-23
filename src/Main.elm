@@ -9,18 +9,20 @@ import Canvas.Settings.Advanced exposing (rotate, transform, translate)
 import Canvas.Settings.Line exposing (lineWidth)
 import Canvas.Settings.Text exposing (TextAlign(..), TextBaseLine(..), align, baseLine, font)
 import Color
+import CustomColor exposing (colorPalette)
 import Element exposing (DeviceClass(..))
 import Element.Background as Background
 import Element.Border
+import Element.Font
 import Element.Input as Input
 import FeatherIcons
+import Font
 import Html
 import Html.Attributes exposing (style)
 import Model
     exposing
         ( BaseSlice
         , ProteinCategory(..)
-        , colorPalette
         , getAdenineRadialFourthSegment
         , getAdenineRadialSecondSegment
         , getAdenineRadialThirdSegment
@@ -57,6 +59,7 @@ type Msg
     | MsgLookForThirdCodonSegment String ( Int, String )
     | MsgGetCurrentCodonResult String ( Int, String )
     | MsgCheckResult String ( Int, String )
+    | MsgReset
     | MsgFillFirstSegment
     | MsgFillSecondSegment
     | MsgFillThirdSegment
@@ -68,7 +71,7 @@ type Msg
 
 delayNextStep : Msg -> Cmd Msg
 delayNextStep msg =
-    Process.sleep 1000
+    Process.sleep 0
         |> Task.perform (\_ -> msg)
 
 
@@ -99,13 +102,14 @@ update msg model =
                     round <| 40 + (toFloat (String.length newInputText) * 18)
 
                 currentMessage =
-                    "We look for the RNA strand"
+                    "Get the RNA strand from DNA"
             in
             ( { model
                 | dnaChain = newInputText
                 , frameWidth = frameWidth
                 , workingFrame = []
                 , message = currentMessage
+                , processState = Running
                 , steps =
                     model.steps
                         ++ [ "The DNA strand is: " ++ model.inputText
@@ -135,7 +139,7 @@ update msg model =
                             '_'
 
                 currentMessage =
-                    "We look for the starting codon: 'AUG'"
+                    "Look for the starting codon: 'AUG'"
 
                 rnaChain =
                     String.map getBase model.dnaChain
@@ -158,7 +162,7 @@ update msg model =
                     List.head <| String.indexes "AUG" model.rnaChain
 
                 currentMessage =
-                    "We take the first 3 bases from the starting codon"
+                    "Take the first 3 bases from the starting codon"
 
                 newModelAndCmd =
                     case Maybe.map (\i -> ( i, String.dropLeft i model.rnaChain )) startIndex of
@@ -184,20 +188,24 @@ update msg model =
                 nextCodon =
                     String.left 3 <| Tuple.second currentFrame
 
-                currentMessage =
-                    "The next codon doesn't have minimun 3 bases. The process ends."
-
                 newModelAndCmd =
                     if String.length nextCodon == 3 then
                         ( { model
                             | underlineNextCodon = True
+                            , message = "Look for the first base in the internal region of the Radial Codon Table."
+                            , steps = model.steps ++ [ "Look for the codon in the internal region of the Radial Codon Table." ]
                           }
                         , delayNextStep <| MsgLookForFirstCodonSegment nextCodon currentFrame
                         )
 
                     else
+                        let
+                            currentMessage =
+                                "The next codon doesn't have minimun 3 bases. The process ends."
+                        in
                         ( { model
                             | message = currentMessage
+                            , processState = Finished
                             , steps = model.steps ++ [ currentMessage ]
                           }
                         , Cmd.none
@@ -208,6 +216,7 @@ update msg model =
         MsgLookForFirstCodonSegment nextCodon currentFrame ->
             ( { model
                 | underlineFirstNextCodon = True
+                , message = "Look for the second base in the middle region of the Radial Codon Table."
                 , currentCodon = Just <| String.left 1 nextCodon
               }
             , delayNextStep <| MsgLookForSecondCodonSegment nextCodon currentFrame
@@ -216,6 +225,7 @@ update msg model =
         MsgLookForSecondCodonSegment nextCodon currentFrame ->
             ( { model
                 | underlineSecondNextCodon = True
+                , message = "Look for the third base in the external region of the Radial Codon Table."
                 , currentCodon = Just <| String.left 2 nextCodon
               }
             , delayNextStep <| MsgLookForThirdCodonSegment nextCodon currentFrame
@@ -265,6 +275,7 @@ update msg model =
                             in
                             ( { model
                                 | message = currentMessage
+                                , processState = Finished
                                 , steps = model.steps ++ [ currentMessage ]
                               }
                             , Cmd.none
@@ -278,11 +289,12 @@ update msg model =
                     if lastResult == "STOP" then
                         let
                             currentMessage =
-                                "The result is 'STOP' so the process ends."
+                                "The result is 'STOP', the process ends."
                         in
                         ( { model
                             | message = currentMessage
                             , steps = model.steps ++ [ currentMessage ]
+                            , processState = Finished
                             , showStepsResume = True
                           }
                         , Cmd.none
@@ -291,7 +303,7 @@ update msg model =
                     else
                         let
                             currentMessage =
-                                "We take the next 3 bases"
+                                "We take the next codon ( 3 bases )"
                         in
                         ( { model
                             | currentCodon = Nothing
@@ -318,10 +330,17 @@ update msg model =
                 frameHeight =
                     round <| 130 + (toFloat (List.length nextWorkingFrame - 1) * 50)
 
+                nextCodon =
+                    String.left 3 <| Tuple.second nextFrame
+
+                currentMessage =
+                    "The next codon is: " ++ nextCodon
+
                 newModelAndCmd =
                     ( { model
-                        | workingFrame =
-                            nextWorkingFrame
+                        | workingFrame = nextWorkingFrame
+                        , message = currentMessage
+                        , steps = model.steps ++ [ currentMessage ]
                         , underlineNextCodon = False
                         , underlineFirstNextCodon = False
                         , underlineSecondNextCodon = False
@@ -332,6 +351,28 @@ update msg model =
                     )
             in
             newModelAndCmd
+
+        MsgReset ->
+            ( { model
+                | dnaChain = ""
+                , rnaChain = ""
+                , workingFrame = []
+                , lastFrame = ( 0, "" )
+                , currentCodon = Nothing
+                , result = []
+                , message = ""
+                , steps = []
+                , underlineNextCodon = False
+                , underlineFirstNextCodon = False
+                , underlineSecondNextCodon = False
+                , underlineThirdNextCodon = False
+                , frameHeight = 130
+                , frameWidth = 100
+                , showStepsResume = False
+                , processState = Initial
+              }
+            , Cmd.none
+            )
 
         Frame _ ->
             ( { model | count = model.count + 1 }, Cmd.none )
@@ -427,7 +468,14 @@ type alias Model =
     , frameWidth : Int
     , showModal : Bool
     , showStepsResume : Bool
+    , processState : ProcessState
     }
+
+
+type ProcessState
+    = Initial
+    | Running
+    | Finished
 
 
 initModel : Flags -> Url.Url -> Browser.Navigation.Key -> Model
@@ -455,6 +503,7 @@ initModel flags url navigationKey =
     , frameWidth = 100
     , showModal = False
     , showStepsResume = False
+    , processState = Initial
     }
 
 
@@ -476,7 +525,7 @@ initCmd model =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Tus postulantes · Talenteca"
+    { title = "DNA Translation"
     , body =
         [ viewStylish model
         ]
@@ -597,9 +646,9 @@ viewElement model =
                 [ Element.width Element.fill
                 , Element.height Element.fill
                 , Element.padding 20
-                , Element.spacing 20
+                , Element.spacing 8
                 ]
-                [ Element.el [ Element.centerX ] <| Element.text "DNA TRANSLATION"
+                [ Element.el (Font.headline colorPalette.primary ++ [ Element.centerX ]) <| Element.text "DNA TRANSLATION"
                 , Element.row
                     [ Element.spacing 10
                     , Element.width Element.fill
@@ -618,29 +667,77 @@ viewElement model =
                         , label = "Enter your DNA Secuence"
                         , onChange = InputText
                         }
-                    , Widget.textButton (Material.containedButton colorPalette)
-                        { text = "Submit"
-                        , onPress = Just Submit
+                    , let
+                        label =
+                            if model.processState == Finished then
+                                "Reset"
+
+                            else
+                                "Submit"
+
+                        onPressMsg =
+                            case model.processState of
+                                Initial ->
+                                    Just Submit
+
+                                Running ->
+                                    Nothing
+
+                                Finished ->
+                                    Just MsgReset
+                      in
+                      Widget.textButton (Material.containedButton colorPalette)
+                        { text = label
+                        , onPress = onPressMsg
                         }
                     ]
                 , if model.dnaChain /= "" then
-                    Element.paragraph [ Element.width Element.fill ]
-                        [ Element.text "DNA Strand: ", Element.text model.dnaChain ]
+                    Element.paragraph
+                        [ Element.width Element.fill ]
+                        [ Element.el (Font.body colorPalette.primary) <| Element.text "DNA Strand: "
+                        , Element.el (Font.body CustomColor.text) <| Element.text model.dnaChain
+                        ]
 
                   else
                     Element.none
                 , if model.rnaChain /= "" then
-                    Element.paragraph [ Element.width Element.fill ]
-                        [ Element.text "Protein Result: "
-                        , Element.text <|
-                            String.Extra.toTitleCase <|
-                                String.join ", " model.result
+                    Element.paragraph
+                        [ Element.width Element.fill ]
+                        [ Element.el (Font.body colorPalette.primary) <| Element.text "RNA Strand: "
+                        , Element.el (Font.body CustomColor.text) <| Element.text model.rnaChain
+                        ]
+
+                  else
+                    Element.none
+                , if model.rnaChain /= "" then
+                    Element.column [ Element.width Element.fill, Element.spacing 5 ]
+                        [ Element.el (Font.body colorPalette.primary) <| Element.text "Amino acid sequence: "
+                        , Element.paragraph
+                            (Font.body CustomColor.text
+                                ++ (Element.width Element.fill
+                                        :: (if model.processState == Finished then
+                                                [ Element.Font.bold ]
+
+                                            else
+                                                []
+                                           )
+                                   )
+                            )
+                          <|
+                            [ Element.text <|
+                                String.Extra.toTitleCase <|
+                                    String.join ", " model.result
+                            ]
                         ]
 
                   else
                     Element.none
                 , if String.length model.message > 0 then
-                    Element.text model.message
+                    Element.paragraph
+                        [ Element.width Element.fill, Element.alignBottom ]
+                        [ Element.el (Font.body colorPalette.primary) <| Element.text "Current Step: "
+                        , Element.el (Font.body CustomColor.text ++ [ Element.Font.bold ]) <| Element.text model.message
+                        ]
 
                   else
                     Element.none

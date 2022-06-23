@@ -1,7 +1,5 @@
 module Model exposing (..)
 
-import Color exposing (Color)
-
 
 type alias BaseSlice =
     { label : List String
@@ -26,22 +24,6 @@ type ProteinCategory
 type alias BaseLabelTranslate =
     { x : Float
     , y : Float
-    }
-
-
-colorPalette =
-    { primary = Color.rgb255 26 35 126
-    , secondary = Color.rgb255 61 90 254
-    , background = Color.rgb255 255 255 255
-    , surface = Color.rgb255 255 255 255
-    , error = Color.rgb255 176 0 32
-    , on =
-        { primary = Color.rgb255 255 255 255
-        , secondary = Color.rgb255 0 0 0
-        , background = Color.rgb255 0 0 0
-        , surface = Color.rgb255 0 0 0
-        , error = Color.rgb255 255 255 255
-        }
     }
 
 
