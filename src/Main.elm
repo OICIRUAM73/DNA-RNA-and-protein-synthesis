@@ -54,8 +54,11 @@ type Msg
     | MsgGetStartingFrame
     | MsgGetNextFrame ( Int, String )
     | MsgUnderlineNextCodon ( Int, String )
+    | MsgUnderlineFirstCodonSegment String ( Int, String )
     | MsgLookForFirstCodonSegment String ( Int, String )
+    | MsgUnderlineSecondCodonSegment String ( Int, String )
     | MsgLookForSecondCodonSegment String ( Int, String )
+    | MsgUnderlineThirdCodonSegment String ( Int, String )
     | MsgLookForThirdCodonSegment String ( Int, String )
     | MsgGetCurrentCodonResult String ( Int, String )
     | MsgCheckResult String ( Int, String )
@@ -67,11 +70,13 @@ type Msg
     | Frame Float
     | ShowAllSteps
     | HideAllSteps
+    | ShowCodonTableModal (Maybe Msg)
+    | HideCodonTableModal
 
 
-delayNextStep : Msg -> Cmd Msg
-delayNextStep msg =
-    Process.sleep 2000
+delayNextStep : Float -> Msg -> Cmd Msg
+delayNextStep time msg =
+    Process.sleep time
         |> Task.perform (\_ -> msg)
 
 
@@ -116,7 +121,7 @@ update msg model =
                            , currentMessage
                            ]
               }
-            , delayNextStep MsgGetRNA
+            , delayNextStep 1500 MsgGetRNA
             )
 
         MsgGetRNA ->
@@ -153,7 +158,7 @@ update msg model =
                         ++ [ currentMessage
                            ]
               }
-            , delayNextStep MsgGetStartingFrame
+            , delayNextStep 1500 MsgGetStartingFrame
             )
 
         MsgGetStartingFrame ->
@@ -173,7 +178,7 @@ update msg model =
                                 , message = currentMessage
                                 , steps = model.steps ++ [ currentMessage ]
                               }
-                            , delayNextStep <| MsgUnderlineNextCodon newWorkingFrame
+                            , delayNextStep 1500 <| MsgUnderlineNextCodon newWorkingFrame
                             )
 
                         Nothing ->
@@ -195,7 +200,7 @@ update msg model =
                             , message = "Look for the first base in the internal region of the Radial Codon Table."
                             , steps = model.steps ++ [ "Look for the codon in the internal region of the Radial Codon Table." ]
                           }
-                        , delayNextStep <| MsgLookForFirstCodonSegment nextCodon currentFrame
+                        , delayNextStep 1500 <| MsgUnderlineFirstCodonSegment nextCodon currentFrame
                         )
 
                     else
@@ -213,30 +218,74 @@ update msg model =
             in
             newModelAndCmd
 
-        MsgLookForFirstCodonSegment nextCodon currentFrame ->
+        MsgUnderlineFirstCodonSegment nextCodon currentFrame ->
+            let
+                nextMsg =
+                    MsgLookForFirstCodonSegment nextCodon currentFrame
+            in
             ( { model
                 | underlineFirstNextCodon = True
                 , message = "Look for the second base in the middle region of the Radial Codon Table."
-                , currentCodon = Just <| String.left 1 nextCodon
               }
-            , delayNextStep <| MsgLookForSecondCodonSegment nextCodon currentFrame
+            , if model.isMobile then
+                delayNextStep 1500 <| ShowCodonTableModal <| Just nextMsg
+
+              else
+                delayNextStep 1500 nextMsg
+            )
+
+        MsgLookForFirstCodonSegment nextCodon currentFrame ->
+            ( { model
+                | currentCodon = Just <| String.left 1 nextCodon
+              }
+            , delayNextStep 1500 <| MsgUnderlineSecondCodonSegment nextCodon currentFrame
+            )
+
+        MsgUnderlineSecondCodonSegment nextCodon currentFrame ->
+            let
+                nextMsg =
+                    MsgLookForSecondCodonSegment nextCodon currentFrame
+            in
+            ( { model
+                | underlineSecondNextCodon = True
+                , showCodonTableRadialAsModal = False
+                , message = "Look for the third base in the external region of the Radial Codon Table."
+              }
+            , if model.isMobile then
+                delayNextStep 1500 <| ShowCodonTableModal <| Just nextMsg
+
+              else
+                delayNextStep 1500 nextMsg
             )
 
         MsgLookForSecondCodonSegment nextCodon currentFrame ->
             ( { model
-                | underlineSecondNextCodon = True
-                , message = "Look for the third base in the external region of the Radial Codon Table."
-                , currentCodon = Just <| String.left 2 nextCodon
+                | currentCodon = Just <| String.left 2 nextCodon
               }
-            , delayNextStep <| MsgLookForThirdCodonSegment nextCodon currentFrame
+            , delayNextStep 1500 <| MsgUnderlineThirdCodonSegment nextCodon currentFrame
+            )
+
+        MsgUnderlineThirdCodonSegment nextCodon currentFrame ->
+            let
+                nextMsg =
+                    MsgLookForThirdCodonSegment nextCodon currentFrame
+            in
+            ( { model
+                | underlineThirdNextCodon = True
+                , showCodonTableRadialAsModal = False
+              }
+            , if model.isMobile then
+                delayNextStep 1500 <| ShowCodonTableModal <| Just nextMsg
+
+              else
+                delayNextStep 1500 nextMsg
             )
 
         MsgLookForThirdCodonSegment nextCodon currentFrame ->
             ( { model
-                | underlineThirdNextCodon = True
-                , currentCodon = Just nextCodon
+                | currentCodon = Just nextCodon
               }
-            , delayNextStep <| MsgGetCurrentCodonResult nextCodon currentFrame
+            , delayNextStep 1500 <| MsgGetCurrentCodonResult nextCodon currentFrame
             )
 
         MsgGetCurrentCodonResult nextCodon currentFrame ->
@@ -262,10 +311,11 @@ update msg model =
                             in
                             ( { model
                                 | message = currentMessage
+                                , showCodonTableRadialAsModal = False
                                 , steps = model.steps ++ [ currentMessage ]
                                 , result = model.result ++ [ aminoAcidFound ]
                               }
-                            , delayNextStep <| MsgCheckResult aminoAcidFound currentFrame
+                            , delayNextStep 1500 <| MsgCheckResult aminoAcidFound currentFrame
                             )
 
                         Nothing ->
@@ -310,7 +360,7 @@ update msg model =
                             , message = currentMessage
                             , steps = model.steps ++ [ currentMessage ]
                           }
-                        , delayNextStep <| MsgGetNextFrame lastFrame
+                        , delayNextStep 1500 <| MsgGetNextFrame lastFrame
                         )
             in
             newModelAndCmd
@@ -347,7 +397,7 @@ update msg model =
                         , underlineThirdNextCodon = False
                         , frameHeight = frameHeight
                       }
-                    , delayNextStep <| MsgUnderlineNextCodon nextFrame
+                    , delayNextStep 1500 <| MsgUnderlineNextCodon nextFrame
                     )
             in
             newModelAndCmd
@@ -381,7 +431,7 @@ update msg model =
             ( { model
                 | firstSegment = getFirstRadialBaseSegment
               }
-            , delayNextStep MsgFillSecondSegment
+            , delayNextStep 200 MsgFillSecondSegment
             )
 
         MsgFillSecondSegment ->
@@ -392,7 +442,7 @@ update msg model =
                         ++ getGuanineRadialSecondSegment
                         ++ getUracilRadialSecondSegment
               }
-            , delayNextStep MsgFillThirdSegment
+            , delayNextStep 200 MsgFillThirdSegment
             )
 
         MsgFillThirdSegment ->
@@ -403,7 +453,7 @@ update msg model =
                         ++ getGuanineRadialThirdSegment
                         ++ getUracilRadialThirdSegment
               }
-            , delayNextStep MsgFillFourthSegment
+            , delayNextStep 200 MsgFillFourthSegment
             )
 
         MsgFillFourthSegment ->
@@ -424,6 +474,21 @@ update msg model =
 
         HideAllSteps ->
             ( { model | showModal = False }
+            , Cmd.none
+            )
+
+        ShowCodonTableModal maybeNextMsg ->
+            ( { model | showCodonTableRadialAsModal = True }
+            , case maybeNextMsg of
+                Just nextMsg ->
+                    delayNextStep 1500 nextMsg
+
+                Nothing ->
+                    Cmd.none
+            )
+
+        HideCodonTableModal ->
+            ( { model | showCodonTableRadialAsModal = False }
             , Cmd.none
             )
 
@@ -469,6 +534,8 @@ type alias Model =
     , showModal : Bool
     , showStepsResume : Bool
     , processState : ProcessState
+    , isMobile : Bool
+    , showCodonTableRadialAsModal : Bool
     }
 
 
@@ -504,6 +571,8 @@ initModel flags url navigationKey =
     , showModal = False
     , showStepsResume = False
     , processState = Initial
+    , isMobile = flags.windowSize.width <= 600
+    , showCodonTableRadialAsModal = False
     }
 
 
@@ -520,7 +589,7 @@ type alias WindowSize =
 
 initCmd : Model -> Cmd Msg
 initCmd model =
-    delayNextStep MsgFillFirstSegment
+    delayNextStep 0 MsgFillFirstSegment
 
 
 view : Model -> Browser.Document Msg
@@ -544,11 +613,11 @@ viewStylish model =
             ]
         }
         ((Background.color <| Element.rgb255 244 244 244)
-            :: (if model.showModal then
-                    let
-                        style =
-                            Material.alertDialog colorPalette
-                    in
+            :: (let
+                    style =
+                        Material.alertDialog colorPalette
+                in
+                if model.showModal then
                     Widget.singleModal
                         [ { onDismiss = Just HideAllSteps
                           , content =
@@ -610,6 +679,25 @@ viewStylish model =
                           }
                         ]
 
+                else if model.showCodonTableRadialAsModal then
+                    Widget.singleModal
+                        [ { onDismiss = Just HideCodonTableModal
+                          , content =
+                                Element.column
+                                    ([ Element.centerX
+                                     , Element.centerY
+                                     , Element.spacing 10
+                                     ]
+                                        ++ style.elementColumn
+                                        ++ [ Element.height <| Element.px <| model.windowSize.width
+                                           ]
+                                    )
+                                    [ Element.el style.content.title.contentText <| Element.text "Codon Table"
+                                    , viewCodonTable model
+                                    ]
+                          }
+                        ]
+
                 else
                     []
                )
@@ -620,25 +708,22 @@ viewStylish model =
 
 viewElement : Model -> Element.Element Msg
 viewElement model =
-    let
-        firstSegmentChain =
-            Maybe.withDefault "" <| Maybe.map (\c -> String.left 1 c) model.currentCodon
-
-        secondSegmentChain =
-            Maybe.withDefault "" <| Maybe.map (\c -> String.left 2 c) model.currentCodon
-
-        thirdSegmentChain =
-            Maybe.withDefault "" <| Maybe.map (\c -> String.left 3 c) model.currentCodon
-    in
     Element.row
         [ Element.width Element.fill
         , Element.height Element.fill
         ]
         [ Element.column
-            [ Element.width <|
-                (Element.fill
-                    |> Element.maximum (round (toFloat model.windowSize.width / 2 - 2))
-                )
+            [ if model.isMobile then
+                Element.width <|
+                    (Element.fill
+                        |> Element.maximum (round (toFloat model.windowSize.width))
+                    )
+
+              else
+                Element.width <|
+                    (Element.fill
+                        |> Element.maximum (round (toFloat model.windowSize.width / 2 - 2))
+                    )
             , Element.height Element.fill
             , Element.spaceEvenly
             ]
@@ -649,7 +734,7 @@ viewElement model =
                 , Element.spacing 8
                 ]
                 [ Element.el (Font.headline colorPalette.primary ++ [ Element.centerX ]) <| Element.text "DNA TRANSLATION"
-                , Element.row
+                , Element.wrappedRow
                     [ Element.spacing 10
                     , Element.width Element.fill
                     ]
@@ -691,6 +776,18 @@ viewElement model =
                         , onPress = onPressMsg
                         }
                     ]
+                , if model.isMobile && model.processState == Initial then
+                    Element.el
+                        [ Element.centerX
+                        ]
+                    <|
+                        Widget.textButton (Material.textButton colorPalette)
+                            { text = "Show Codon Table"
+                            , onPress = Just <| ShowCodonTableModal Nothing
+                            }
+
+                  else
+                    Element.none
                 , if model.dnaChain /= "" then
                     Element.paragraph
                         [ Element.width Element.fill ]
@@ -768,71 +865,124 @@ viewElement model =
                             ++ renderFrameSequence model
                         )
             ]
-        , Element.el
-            [ Element.width <|
-                (Element.fill
-                    |> Element.maximum (round (toFloat model.windowSize.width / 2))
-                )
-            , Element.height Element.fill
-            , Element.Border.widthEach { top = 0, right = 0, bottom = 0, left = 2 }
-            , Element.Border.color <| Element.rgb255 200 200 200
-            ]
-          <|
-            Element.html <|
-                let
-                    canvasWidth =
-                        round <| toFloat model.windowSize.width / 2
+        , if model.isMobile then
+            Element.none
 
-                    canvasHeight =
-                        model.windowSize.height - 3
-
-                    maxRadius =
-                        (if canvasWidth < canvasHeight then
-                            toFloat canvasWidth / 2
-
-                         else
-                            toFloat canvasHeight / 2
-                        )
-                            - 20
-
-                    fourthCirleRadius =
-                        if maxRadius > 350 then
-                            maxRadius
-
-                        else
-                            maxRadius - 50
-
-                    thirdCirleRadius =
-                        if maxRadius > 350 then
-                            maxRadius - (maxRadius / 4)
-
-                        else
-                            fourthCirleRadius - 100
-
-                    secondCirleRadius =
-                        if maxRadius > 350 then
-                            maxRadius - 2 * (maxRadius / 4)
-
-                        else
-                            thirdCirleRadius - 50
-
-                    firstCirleRadius =
-                        if maxRadius > 350 then
-                            maxRadius - 3 * (maxRadius / 4)
-
-                        else
-                            secondCirleRadius - 50
-                in
-                Canvas.toHtml
-                    ( canvasWidth, canvasHeight )
-                    []
-                    (clearScreen canvasWidth canvasHeight
-                        :: renderInnerCircle model thirdSegmentChain model.fourthSegment 4 thirdCirleRadius fourthCirleRadius 15
-                        ++ renderInnerCircle model thirdSegmentChain model.thirdSegment 3 secondCirleRadius thirdCirleRadius 12
-                        ++ renderInnerCircle model secondSegmentChain model.secondSegment 2 firstCirleRadius secondCirleRadius 20
-                        ++ renderInnerCircle model firstSegmentChain model.firstSegment 1 0 firstCirleRadius 30
+          else
+            Element.el
+                [ Element.width <|
+                    (Element.fill
+                        |> Element.maximum (round (toFloat model.windowSize.width / 2))
                     )
+                , Element.height Element.fill
+                , Element.Border.widthEach { top = 0, right = 0, bottom = 0, left = 2 }
+                , Element.Border.color <| Element.rgb255 200 200 200
+                ]
+            <|
+                viewCodonTable model
         ]
+
+
+viewCodonTable model =
+    let
+        firstSegmentChain =
+            Maybe.withDefault "" <| Maybe.map (\c -> String.left 1 c) model.currentCodon
+
+        secondSegmentChain =
+            Maybe.withDefault "" <| Maybe.map (\c -> String.left 2 c) model.currentCodon
+
+        thirdSegmentChain =
+            Maybe.withDefault "" <| Maybe.map (\c -> String.left 3 c) model.currentCodon
+    in
+    Element.html <|
+        let
+            canvasWidth =
+                if model.isMobile then
+                    model.windowSize.width
+
+                else
+                    round <| toFloat model.windowSize.width / 2
+
+            canvasHeight =
+                if model.isMobile then
+                    model.windowSize.width
+
+                else
+                    model.windowSize.height - 3
+
+            maxRadius =
+                (if canvasWidth < canvasHeight then
+                    toFloat canvasWidth / 2
+
+                 else
+                    toFloat canvasHeight / 2
+                )
+                    - 10
+
+            fourthCirleRadius =
+                maxRadius
+
+            thirdCirleRadius =
+                maxRadius - 3 * (maxRadius / 9)
+
+            secondCirleRadius =
+                maxRadius - 5 * (maxRadius / 9)
+
+            firstCirleRadius =
+                maxRadius - 7 * (maxRadius / 9)
+
+            fourthCircleFontSize =
+                if model.isMobile then
+                    10
+
+                else if model.windowSize.width > 600 && model.windowSize.width <= 1050 then
+                    10
+
+                else if model.windowSize.width <= 1200 then
+                    13
+
+                else
+                    15
+
+            thirdCircleFontSize =
+                if model.isMobile then
+                    10
+
+                else if model.windowSize.width > 600 && model.windowSize.width <= 900 then
+                    10
+
+                else
+                    12
+
+            secondCircleFontSize =
+                if model.isMobile then
+                    10
+
+                else if model.windowSize.width > 600 && model.windowSize.width <= 900 then
+                    10
+
+                else
+                    20
+
+            firstCircleFontSize =
+                if model.isMobile then
+                    20
+
+                else if model.windowSize.width > 600 && model.windowSize.width <= 900 then
+                    20
+
+                else
+                    30
+        in
+        Canvas.toHtml
+            ( canvasWidth, canvasHeight )
+            []
+            (clearScreen canvasWidth canvasHeight
+                :: renderInnerCircle ( canvasWidth, canvasHeight ) thirdSegmentChain model.fourthSegment 4 thirdCirleRadius fourthCirleRadius fourthCircleFontSize
+                ++ renderInnerCircle ( canvasWidth, canvasHeight ) thirdSegmentChain model.thirdSegment 3 secondCirleRadius thirdCirleRadius thirdCircleFontSize
+                ++ renderInnerCircle ( canvasWidth, canvasHeight ) secondSegmentChain model.secondSegment 2 firstCirleRadius secondCirleRadius secondCircleFontSize
+                ++ renderInnerCircle ( canvasWidth, canvasHeight ) firstSegmentChain model.firstSegment 1 0 firstCirleRadius firstCircleFontSize
+            )
 
 
 renderDnaCompleteFrameSequence : Model -> List Renderable
@@ -983,14 +1133,14 @@ renderFrameSequence model =
     List.concat <| List.indexedMap renderTextChainAndArrow model.workingFrame
 
 
-renderInnerCircle : Model -> String -> List BaseSlice -> Int -> Float -> Float -> Int -> List Canvas.Renderable
-renderInnerCircle model activeSegment segmentList segment startRadius radius fontSize =
+renderInnerCircle : ( Int, Int ) -> String -> List BaseSlice -> Int -> Float -> Float -> Int -> List Canvas.Renderable
+renderInnerCircle ( canvasWidth, canvasHeight ) activeSegment segmentList segment startRadius radius fontSize =
     let
         centerX =
-            toFloat model.windowSize.width / 4
+            toFloat canvasWidth / 2
 
         centerY =
-            toFloat model.windowSize.height / 2
+            toFloat canvasHeight / 2
 
         center =
             ( centerX, centerY )
